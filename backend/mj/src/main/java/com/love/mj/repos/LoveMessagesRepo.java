@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface LoveMessagesRepo extends JpaRepository<LoveMessages,Integer> {
+public interface LoveMessagesRepo extends JpaRepository<LoveMessages, Integer> {
 }

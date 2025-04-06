@@ -1,6 +1,7 @@
 package com.love.mj.controller;
 
 import com.love.mj.dto.UniqueCodeDTO;
+import com.love.mj.entity.LoveMessages;
 import com.love.mj.entity.LoveUser;
 import com.love.mj.entity.MessageBucket;
 import com.love.mj.repos.LoveUserRepo;
@@ -9,9 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@RestController
 @RequestMapping("/uniquecode")
 public class UniqueCodeController
 {
@@ -33,20 +36,26 @@ public class UniqueCodeController
             return ResponseEntity.status(400).body("Unique Code is wrong");
         }
 
-        Optional<MessageBucket> bucketOptional=messageBucketRepo.findByUser(adminUser.get());
+        List<MessageBucket> buckets = messageBucketRepo.findAllByUsersContaining(adminUser.get());
+        
+        if (buckets.isEmpty()) {
+            return ResponseEntity.status(400).body("No message buckets found for admin user");
+        }
 
-        Optional<LoveUser> user= userRepository.findByUsername(username);
+        Optional<LoveUser> user = userRepository.findByUsername(username);
+        if (user.isEmpty()) {
+            return ResponseEntity.status(400).body("User not found");
+        }
 
-        MessageBucket messageBucket= new MessageBucket();
-
-        messageBucket.setMessages(bucketOptional.get().getMessages());
-
-        List<LoveUser> loveUsers=bucketOptional.get().getUsers();
-        loveUsers.add(user.get());
-
-        messageBucket.setUsers(loveUsers);
-
-        messageBucketRepo.save(messageBucket);
+        // Add user to all buckets the admin has access to
+        for (MessageBucket bucket : buckets) {
+            List<LoveUser> users = new ArrayList<>(bucket.getUsers());
+            if (!users.contains(user.get())) {
+                users.add(user.get());
+                bucket.setUsers(users);
+                messageBucketRepo.save(bucket);
+            }
+        }
 
         return ResponseEntity.status(200).body("Unique Code is validated");
 

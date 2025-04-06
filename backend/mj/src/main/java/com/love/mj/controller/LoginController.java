@@ -1,8 +1,6 @@
 package com.love.mj.controller;
 
 import com.love.mj.dto.LoginDTO;
-import com.love.mj.dto.UniqueCodeDTO;
-import com.love.mj.entity.BucketAccess;
 import com.love.mj.entity.LoveUser;
 
 import com.love.mj.entity.MessageBucket;

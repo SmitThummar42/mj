@@ -24,19 +24,23 @@ public class MessagesController {
 
     @GetMapping("/getallmsg")
     public ResponseEntity<Map<Integer, String>> getallmsg(@RequestParam String username){
+        LoveUser user = loveUserRepo.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Optional<MessageBucket> bucketFromDB= messageBucketRepo.findByUser(loveUserRepo.findByUsername(username).get());
-
-        if (bucketFromDB.isEmpty()) {
+        List<MessageBucket> buckets = messageBucketRepo.findAllByUsersContaining(user);
+        
+        if (buckets.isEmpty()) {
             return ResponseEntity.status(409).body(Collections.singletonMap(0, "No message in bucket"));
         }
 
+        // Combine messages from all buckets the user has access to
+        Map<Integer, String> allMessages = new HashMap<>();
+        for (MessageBucket bucket : buckets) {
+            bucket.getMessages().forEach(msg -> 
+                allMessages.put(msg.getPriority(), msg.getMessageText()));
+        }
 
-        Map<Integer, String> lovemessages = bucketFromDB.get().getMessages().stream()
-                .collect(Collectors.toMap(LoveMessages::getPriority, LoveMessages::getMessageText));
-
-        return ResponseEntity.status(200).body(lovemessages);
-
+        return ResponseEntity.status(200).body(allMessages);
     }
 
 
@@ -50,14 +54,14 @@ public class MessagesController {
             return ResponseEntity.status(401).body("Only Admin Can Add Msg");
         }
         // Check if bucket exists for the user
-        Optional<MessageBucket> bucketFromDB = messageBucketRepo.findByUser(user);
+        List<MessageBucket> bucketFromDB = messageBucketRepo.findAllByUsersContaining(user);
 
         MessageBucket bucket;
         if (bucketFromDB.isEmpty()) {
             // Create a new bucket if none exists
             bucket = new MessageBucket();
-            bucket.setUsers((List<LoveUser>) user);
-            bucket.setMessages(new ArrayList<>());
+            bucket.setUsers(new ArrayList<>(Collections.singletonList(user)));
+            bucket.setMessages(new ArrayList<>()); // New list instance
             messageBucketRepo.save(bucket); // Save the new bucket to the database
         } else {
             return ResponseEntity.status(200).body("Messages Already present");
@@ -69,7 +73,10 @@ public class MessagesController {
             newMessage.setPriority(priority);
             newMessage.setMessageText(messageText);
             newMessage.setBucket(bucket); // Associate message with the bucket
-            bucket.getMessages().add(newMessage);
+            // Create new collections to avoid shared references
+            List<LoveMessages> messages = new ArrayList<>(bucket.getMessages());
+            messages.add(newMessage);
+            bucket.setMessages(messages);
         });
 
         // Save the updated bucket
